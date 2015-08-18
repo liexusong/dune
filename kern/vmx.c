@@ -555,7 +555,8 @@ static inline u16 vmx_read_ldt(void)
 
 static unsigned long segment_base(u16 selector)
 {
-	struct desc_ptr *gdt = &__get_cpu_var(host_gdt);
+	//struct desc_ptr *gdt = &__get_cpu_var(host_gdt);
+	struct desc_ptr *gdt = this_cpu_ptr(&host_gdt);
 	struct desc_struct *d;
 	unsigned long table_base;
 	unsigned long v;
@@ -591,7 +592,8 @@ static inline unsigned long vmx_read_tr_base(void)
 
 static void __vmx_setup_cpu(void)
 {
-	struct desc_ptr *gdt = &__get_cpu_var(host_gdt);
+	//struct desc_ptr *gdt = &__get_cpu_var(host_gdt);
+	struct desc_ptr *gdt = this_cpu_ptr(&host_gdt);
 	unsigned long sysenter_esp;
 	unsigned long tmpl;
 
@@ -617,8 +619,10 @@ static void __vmx_get_cpu_helper(void *ptr)
 
 	BUG_ON(raw_smp_processor_id() != vcpu->cpu);
 	vmcs_clear(vcpu->vmcs);
-	if (__get_cpu_var(local_vcpu) == vcpu)
-		__get_cpu_var(local_vcpu) = NULL;
+	//if (__get_cpu_var(local_vcpu) == vcpu)
+	if (this_cpu_read(local_vcpu) == vcpu)
+		//__get_cpu_var(local_vcpu) = NULL;
+		this_cpu_write(local_vcpu,NULL);
 }
 
 /**
@@ -631,8 +635,10 @@ static void vmx_get_cpu(struct vmx_vcpu *vcpu)
 {
 	int cur_cpu = get_cpu();
 
-	if (__get_cpu_var(local_vcpu) != vcpu) {
-		__get_cpu_var(local_vcpu) = vcpu;
+	//if (__get_cpu_var(local_vcpu) != vcpu) {
+	if (this_cpu_read(local_vcpu) != vcpu) {
+		//__get_cpu_var(local_vcpu) = vcpu;
+		this_cpu_write(local_vcpu,vcpu);
 
 		if (vcpu->cpu != cur_cpu) {
 			if (vcpu->cpu >= 0)
@@ -1084,7 +1090,8 @@ static void vmx_destroy_vcpu(struct vmx_vcpu *vcpu)
 	vmx_get_cpu(vcpu);
 	ept_sync_context(vcpu->eptp);
 	vmcs_clear(vcpu->vmcs);
-	__get_cpu_var(local_vcpu) = NULL;
+	//__get_cpu_var(local_vcpu) = NULL;
+	this_cpu_write(local_vcpu, NULL);
 	vmx_put_cpu(vcpu);
 	vmx_free_vpid(vcpu);
 	vmx_free_vmcs(vcpu->vmcs);
@@ -1614,13 +1621,16 @@ static __init int __vmx_enable(struct vmcs *vmxon_buf)
 static __init void vmx_enable(void *unused)
 {
 	int ret;
-	struct vmcs *vmxon_buf = __get_cpu_var(vmxarea);
+	//struct vmcs *vmxon_buf = __get_cpu_var(vmxarea);
+	struct vmcs *vmxon_buf = this_cpu_read(vmxarea);
 
 	if ((ret = __vmx_enable(vmxon_buf)))
 		goto failed;
 
-	__get_cpu_var(vmx_enabled) = 1;
-	native_store_gdt(&__get_cpu_var(host_gdt));
+	//__get_cpu_var(vmx_enabled) = 1;
+	this_cpu_write(vmx_enabled,1);
+	//native_store_gdt(&__get_cpu_var(host_gdt));
+	native_store_gdt(this_cpu_ptr(&host_gdt));
 
 	printk(KERN_INFO "vmx: VMX enabled on CPU %d\n",
 	       raw_smp_processor_id());
@@ -1636,10 +1646,12 @@ failed:
  */
 static void vmx_disable(void *unused)
 {
-	if (__get_cpu_var(vmx_enabled)) {
+	//if (__get_cpu_var(vmx_enabled)) {
+	if (this_cpu_read(vmx_enabled)) {
 		__vmxoff();
 		write_cr4(read_cr4() & ~X86_CR4_VMXE);
-		__get_cpu_var(vmx_enabled) = 0;
+		//__get_cpu_var(vmx_enabled) = 0;
+		this_cpu_write(vmx_enabled,0);
 	}
 }
 

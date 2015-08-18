@@ -504,7 +504,8 @@ static void vmx_setup_constant_host_state(void)
 	struct desc_ptr dt;
 
 	vmcs_writel(HOST_CR0, read_cr0() & ~X86_CR0_TS);  /* 22.2.3 */
-	vmcs_writel(HOST_CR4, read_cr4());  /* 22.2.3, 22.2.5 */
+	//vmcs_writel(HOST_CR4, read_cr4());  /* 22.2.3, 22.2.5 */
+	vmcs_writel(HOST_CR4, __read_cr4());  /* 22.2.3, 22.2.5 */
 	vmcs_writel(HOST_CR3, read_cr3());  /* 22.2.3 */
 
 	vmcs_write16(HOST_CS_SELECTOR, __KERNEL_CS);  /* 22.2.4 */
@@ -1589,7 +1590,8 @@ static __init int __vmx_enable(struct vmcs *vmxon_buf)
 	u64 phys_addr = __pa(vmxon_buf);
 	u64 old, test_bits;
 
-	if (read_cr4() & X86_CR4_VMXE)
+	//if (read_cr4() & X86_CR4_VMXE)
+	if (__read_cr4() & X86_CR4_VMXE)
 		return -EBUSY;
 
 	rdmsrl(MSR_IA32_FEATURE_CONTROL, old);
@@ -1603,7 +1605,8 @@ static __init int __vmx_enable(struct vmcs *vmxon_buf)
 		/* enable and lock */
 		wrmsrl(MSR_IA32_FEATURE_CONTROL, old | test_bits);
 	}
-	write_cr4(read_cr4() | X86_CR4_VMXE);
+	//write_cr4(read_cr4() | X86_CR4_VMXE);
+	__write_cr4(__read_cr4() | X86_CR4_VMXE);
 
 	__vmxon(phys_addr);
 	vpid_sync_vcpu_global();
@@ -1649,7 +1652,8 @@ static void vmx_disable(void *unused)
 	//if (__get_cpu_var(vmx_enabled)) {
 	if (this_cpu_read(vmx_enabled)) {
 		__vmxoff();
-		write_cr4(read_cr4() & ~X86_CR4_VMXE);
+		//write_cr4(read_cr4() & ~X86_CR4_VMXE);
+		__write_cr4(__read_cr4() & ~X86_CR4_VMXE);
 		//__get_cpu_var(vmx_enabled) = 0;
 		this_cpu_write(vmx_enabled,0);
 	}
